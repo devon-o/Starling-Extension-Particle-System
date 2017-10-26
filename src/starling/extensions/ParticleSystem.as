@@ -27,6 +27,7 @@ package starling.extensions
     import starling.styles.MeshStyle;
     import starling.textures.Texture;
     import starling.utils.MatrixUtil;
+    import starling.utils.MeshSubset;
 
     /** Dispatched when emission of particles is finished. */
     [Event(name="complete", type="starling.events.Event")]
@@ -54,6 +55,7 @@ package starling.extensions
         // helper objects
         private static var sHelperMatrix:Matrix = new Matrix();
         private static var sHelperPoint:Point = new Point();
+        private static var sSubset:MeshSubset = new MeshSubset();
 
         public function ParticleSystem(texture:Texture=null)
         {
@@ -106,8 +108,18 @@ package starling.extensions
                 _vertexData.premultipliedAlpha = false;
             }
 
-            blendMode = _blendFactorSource + ", " + _blendFactorDestination;
-            BlendMode.register(blendMode, _blendFactorSource, _blendFactorDestination);
+            // When the default normal blend combination is used, use BlendMode.NORMAL instead
+            // of registering a new blendMode - that way, textures can be batched together
+            if (_blendFactorSource == Context3DBlendFactor.ONE &&
+                _blendFactorDestination == Context3DBlendFactor.ONE_MINUS_SOURCE_ALPHA)
+            {
+                blendMode = BlendMode.NORMAL
+            }
+            else
+            {
+                blendMode = _blendFactorSource + ", " + _blendFactorDestination;
+                BlendMode.register(blendMode, _blendFactorSource, _blendFactorDestination);
+            }
         }
         
         protected function createParticle():Particle
@@ -303,7 +315,8 @@ package starling.extensions
             }
             else if (_batchable)
             {
-                painter.batchMesh(this);
+                sSubset.setTo(0, _numParticles * 4, 0, _numParticles * 6);
+                painter.batchMesh(this, sSubset);
             }
             else
             {
